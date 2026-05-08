@@ -1,5 +1,8 @@
 # FIELDWORK
 
+<img width="751" height="751" alt="image" src="https://github.com/user-attachments/assets/0d15acdb-e542-4470-b842-afb4e79f9255" />
+
+
 FIELDWORK is a Go CLI and Python Marker sidecar for ingesting and querying arXiv physics papers.
 
 ## Current Milestone Status
