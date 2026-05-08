@@ -56,6 +56,9 @@ The FastAPI sidecar exposes:
 - `GET /health`
 - `POST /parse` with body: `{ "pdf_path": "/data/pdfs/file.pdf" }`
 
+Python dependency note:
+- `marker-pdf==1.10.0` requires `Pillow>=10.1.0,<11.0.0`; this repo pins `Pillow==10.4.0` to keep `make service` builds resolvable.
+
 `/parse` behavior currently:
 - validates file path existence
 - attempts `convert_single_pdf` from Marker if installed
