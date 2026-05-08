@@ -394,9 +394,9 @@ Pillow
 
 | Milestone | Status | Notes |
 |---|---|---|
-| M0 — Repository Foundation | ⬜ Not Started | |
-| M1 — arXiv Harvester | ⬜ Not Started | |
-| M2 — Marker Parsing Service | ⬜ Not Started | |
+| M0 — Repository Foundation | ✅ Complete | Cobra CLI scaffold, config loader, Makefile targets, marker skeleton, compose wiring are in repo. |
+| M1 — arXiv Harvester | ✅ Complete | arXiv client, PDF downloader with skip+rate limit, Redis status/meta helpers, harvest phase wiring are implemented. |
+| M2 — Marker Parsing Service | 🟨 In Progress | Marker FastAPI `/parse` + Go marker client + parse transition in `dig --phase full` are implemented; full Marker extraction fidelity still pending. |
 | M3 — Gemini Embedding Layer | ⬜ Not Started | |
 | M4 — Qdrant Ingestion | ⬜ Not Started | |
 | M5 — Full Dig Pipeline | ⬜ Not Started | |
