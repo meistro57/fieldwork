@@ -51,6 +51,11 @@ go test ./...
 python3 -m compileall python/marker_service
 ```
 
+## CI
+GitHub Actions workflow: `.github/workflows/ci.yml`
+- Runs `go test ./...` on push to `main` and pull requests.
+- Runs `python -m compileall python/marker_service` to validate marker service Python syntax.
+
 ## Marker Service
 The FastAPI sidecar exposes:
 - `GET /health`
