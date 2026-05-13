@@ -6,25 +6,26 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestFetchLatestBuildsExpectedQueryAndParsesFeed(t *testing.T) {
 	t.Parallel()
 
 	var (
-		gotSearchQuery string
-		gotSortBy      string
-		gotSortOrder   string
-		gotStart       string
-		gotMaxResults  string
+		gotSearchQueries []string
+		gotSortBy        string
+		gotSortOrder     string
+		gotStart         string
+		gotMaxResults    []string
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotSearchQuery = r.URL.Query().Get("search_query")
+		gotSearchQueries = append(gotSearchQueries, r.URL.Query().Get("search_query"))
 		gotSortBy = r.URL.Query().Get("sortBy")
 		gotSortOrder = r.URL.Query().Get("sortOrder")
 		gotStart = r.URL.Query().Get("start")
-		gotMaxResults = r.URL.Query().Get("max_results")
+		gotMaxResults = append(gotMaxResults, r.URL.Query().Get("max_results"))
 
 		w.Header().Set("Content-Type", "application/atom+xml")
 		_, _ = fmt.Fprint(w, `<feed>
@@ -46,14 +47,21 @@ line </summary>
 
 	client := NewClient([]string{"quant-ph", "gr-qc"}, server.Client())
 	client.BaseURL = server.URL
+	client.RequestInterval = 1 * time.Millisecond
 
 	papers, err := client.FetchLatest(context.Background(), nil, 50)
 	if err != nil {
 		t.Fatalf("FetchLatest returned error: %v", err)
 	}
 
-	if gotSearchQuery != "cat:quant-ph+OR+cat:gr-qc" {
-		t.Fatalf("unexpected search_query: %s", gotSearchQuery)
+	if len(gotSearchQueries) != 2 {
+		t.Fatalf("expected 2 category queries, got %d", len(gotSearchQueries))
+	}
+	if gotSearchQueries[0] != "cat:quant-ph" {
+		t.Fatalf("unexpected first search_query: %s", gotSearchQueries[0])
+	}
+	if gotSearchQueries[1] != "cat:gr-qc" {
+		t.Fatalf("unexpected second search_query: %s", gotSearchQueries[1])
 	}
 	if gotSortBy != "submittedDate" {
 		t.Fatalf("unexpected sortBy: %s", gotSortBy)
@@ -64,8 +72,11 @@ line </summary>
 	if gotStart != "0" {
 		t.Fatalf("unexpected start: %s", gotStart)
 	}
-	if gotMaxResults != "50" {
-		t.Fatalf("unexpected max_results: %s", gotMaxResults)
+	if len(gotMaxResults) != 2 {
+		t.Fatalf("expected max_results for 2 requests, got %d", len(gotMaxResults))
+	}
+	if gotMaxResults[0] != "25" || gotMaxResults[1] != "25" {
+		t.Fatalf("unexpected max_results: %#v", gotMaxResults)
 	}
 
 	if len(papers) != 1 {

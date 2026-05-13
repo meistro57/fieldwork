@@ -25,6 +25,7 @@ type Config struct {
 	RedisCacheSimilarityThreshold float64
 	PipelineWorkers               int
 	PDFCacheDir                   string
+	MarkerPDFRoot                 string
 	LogLevel                      string
 }
 
@@ -47,6 +48,7 @@ func Load() (*Config, error) {
 		RedisCacheSimilarityThreshold: getFloat("REDIS_CACHE_SIMILARITY_THRESHOLD", 0.92),
 		PipelineWorkers:               getInt("PIPELINE_WORKERS", 3),
 		PDFCacheDir:                   getString("PDF_CACHE_DIR", "./data/pdfs"),
+		MarkerPDFRoot:                 getString("MARKER_PDF_ROOT", ""),
 		LogLevel:                      getString("LOG_LEVEL", "info"),
 	}
 

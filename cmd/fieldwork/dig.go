@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"fieldwork/config"
-	"fieldwork/internal/arxiv"
 	"fieldwork/internal/harvester"
 	"fieldwork/internal/marker"
+	"fieldwork/internal/rss"
 	"fieldwork/internal/store"
 
 	"github.com/spf13/cobra"
@@ -42,9 +42,9 @@ func newDigCommand(cfg *config.Config) *cobra.Command {
 			}
 			defer redisStore.Close()
 
-			arxivClient := arxiv.NewClient(cfg.ArxivCategories, nil)
+			rssClient := rss.NewClient(nil)
 			h := harvester.New(
-				arxivClient,
+				rssClient,
 				redisStore,
 				cfg.PDFCacheDir,
 				time.Duration(cfg.ArxivRateLimitSeconds)*time.Second,
@@ -74,7 +74,13 @@ func newDigCommand(cfg *config.Config) *cobra.Command {
 					continue
 				}
 
-				pdfPath := filepath.Join(cfg.PDFCacheDir, cleanID+".pdf")
+				// Use MarkerPDFRoot for the path sent to the Marker container
+				// which may differ from the host-side PDFCacheDir.
+				pdfRoot := cfg.PDFCacheDir
+				if cfg.MarkerPDFRoot != "" {
+					pdfRoot = cfg.MarkerPDFRoot
+				}
+				pdfPath := filepath.Join(pdfRoot, cleanID+".pdf")
 				if _, err := markerClient.Parse(cmd.Context(), pdfPath); err != nil {
 					parseFailed++
 					_ = redisStore.SetStatus(cmd.Context(), cleanID, "failed")

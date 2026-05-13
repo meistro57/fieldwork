@@ -14,8 +14,12 @@ import (
 	"fieldwork/internal/store"
 )
 
+type PaperSource interface {
+	FetchLatest(ctx context.Context, categories []string, limit int) ([]arxiv.Paper, error)
+}
+
 type Harvester struct {
-	ArxivClient *arxiv.Client
+	PaperClient PaperSource
 	Store       *store.RedisStore
 	PDFCacheDir string
 	RateLimit   time.Duration
@@ -31,9 +35,9 @@ type Result struct {
 	Failed     int
 }
 
-func New(arxivClient *arxiv.Client, redisStore *store.RedisStore, pdfCacheDir string, rateLimit time.Duration) *Harvester {
+func New(paperClient PaperSource, redisStore *store.RedisStore, pdfCacheDir string, rateLimit time.Duration) *Harvester {
 	return &Harvester{
-		ArxivClient: arxivClient,
+		PaperClient: paperClient,
 		Store:       redisStore,
 		PDFCacheDir: pdfCacheDir,
 		RateLimit:   rateLimit,
@@ -42,8 +46,8 @@ func New(arxivClient *arxiv.Client, redisStore *store.RedisStore, pdfCacheDir st
 }
 
 func (h *Harvester) Harvest(ctx context.Context, categories []string, limit int) (*Result, error) {
-	if h.ArxivClient == nil {
-		return nil, fmt.Errorf("arxiv client is required")
+	if h.PaperClient == nil {
+		return nil, fmt.Errorf("paper client is required")
 	}
 	if h.Store == nil {
 		return nil, fmt.Errorf("redis store is required")
@@ -58,9 +62,9 @@ func (h *Harvester) Harvest(ctx context.Context, categories []string, limit int)
 		h.HTTPClient = &http.Client{Timeout: 2 * time.Minute}
 	}
 
-	papers, err := h.ArxivClient.FetchLatest(ctx, categories, limit)
+	papers, err := h.PaperClient.FetchLatest(ctx, categories, limit)
 	if err != nil {
-		return nil, fmt.Errorf("fetch latest arXiv papers: %w", err)
+		return nil, fmt.Errorf("fetch latest papers: %w", err)
 	}
 
 	if err := os.MkdirAll(h.PDFCacheDir, 0o755); err != nil {
@@ -127,28 +131,25 @@ func (h *Harvester) Harvest(ctx context.Context, categories []string, limit int)
 }
 
 func (h *Harvester) waitForRateLimit(ctx context.Context) error {
-	if h.lastDownload.IsZero() {
-		h.lastDownload = time.Now()
-		return nil
+	wait := h.RateLimit
+	if !h.lastDownload.IsZero() {
+		nextAllowed := h.lastDownload.Add(h.RateLimit)
+		wait = time.Until(nextAllowed)
 	}
 
-	nextAllowed := h.lastDownload.Add(h.RateLimit)
-	wait := time.Until(nextAllowed)
-	if wait <= 0 {
-		h.lastDownload = time.Now()
-		return nil
+	if wait > 0 {
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
 
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		h.lastDownload = time.Now()
-		return nil
-	}
+	h.lastDownload = time.Now()
+	return nil
 }
 
 func (h *Harvester) downloadPDF(ctx context.Context, pdfURL, destination string) error {
