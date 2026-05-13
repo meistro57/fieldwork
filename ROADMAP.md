@@ -16,12 +16,12 @@ The project sits inside the KAE ecosystem as a domain-specific sibling: where KA
 ## Architecture Overview
 
 ```
-arXiv Atom API
+arXiv RSS feeds (default source)
       │
       ▼
 [ Go Harvester ]  ──── rate limiter (3s) ────▶  /data/pdfs/
       │
-      ▼  Redis Streams (task queue)
+      ▼  Redis paper status/meta keys
       │
       ▼
 [ Python Marker Service ]  (FastAPI sidecar)
@@ -36,7 +36,7 @@ arXiv Atom API
 [ Qdrant fieldwork collection ]
       │  named vectors: text / abstract / chart
       ▼
-[ Go Query CLI ]  ◀──  Redis Semantic Cache (RedisVL)
+[ Go Query CLI ]  ◀──  Redis Semantic Cache (planned)
 ```
 
 ---
@@ -67,14 +67,19 @@ arXiv Atom API
 **Goal:** Reliably pull fifty papers from targeted physics categories into local PDF cache.
 
 **Deliverables:**
+- `internal/rss/client.go`
+  - RSS XML fetcher with configurable category list
+  - Fetches category feeds from `https://rss.arxiv.org/rss/{category}`
+  - Parses IDs from RSS GUID fields (`oai:arXiv.org:{id}`)
+  - Merges category feeds, deduplicates by arXiv ID, then trims to limit
+  - Struct mapping: `Paper{ID, Title, Authors, Abstract, Categories, SubmittedAt, PDFURL}`
 - `internal/arxiv/client.go`
-  - Atom XML fetcher with configurable category list
-  - Boolean OR query across `quant-ph`, `gr-qc`, `hep-th`, `hep-ph`, `math-ph`, `cond-mat`
-  - Sort by `submittedDate` descending, fetch top 50
-  - Structs: `Paper{ID, Title, Authors, Abstract, Categories, SubmittedAt, PDFUrl}`
+  - Legacy Atom client retained for compatibility and tests
+- `internal/semanticscholar/client.go`
+  - Optional Graph API source client for future source switching
 - `internal/harvester/harvester.go`
-  - PDF downloader with 3-second inter-request rate limiter (respects arXiv ToS)
-  - Skips already-downloaded papers by checking `/data/pdfs/{arxiv_id}.pdf` existence
+  - PDF downloader with configurable inter-request rate limiter
+  - Skips already-downloaded papers by checking `{PDF_CACHE_DIR}/{arxiv_id}.pdf`
   - Writes paper metadata to Redis hash: `fieldwork:paper:{id}:meta`
   - Sets paper status to `downloaded` in Redis: `fieldwork:paper:{id}:status`
 - `internal/store/redis.go`
@@ -91,7 +96,7 @@ fieldwork:dig:current                → string: timestamp of active dig run
 fieldwork:dig:stats                  → hash: total, downloaded, parsed, embedded, done, failed
 ```
 
-**Done when:** `fieldwork dig --phase=harvest` downloads 50 PDFs and all status keys are set in Redis.
+**Done when:** `fieldwork dig --phase=harvest` downloads configured papers and all status keys are set in Redis.
 
 ---
 
@@ -348,6 +353,7 @@ GEMINI_EMBEDDING_DIMENSIONS=3072
 # Marker Service
 MARKER_SERVICE_URL=http://localhost:8000
 MARKER_SERVICE_TIMEOUT_SECONDS=120
+MARKER_PDF_ROOT=
 
 # Qdrant
 QDRANT_URL=http://localhost:6333
@@ -395,7 +401,7 @@ Pillow
 | Milestone | Status | Notes |
 |---|---|---|
 | M0 — Repository Foundation | ✅ Complete | Cobra CLI scaffold, config loader, Makefile targets, marker skeleton, compose wiring are in repo. |
-| M1 — arXiv Harvester | ✅ Complete | arXiv client, PDF downloader with skip+rate limit, Redis status/meta helpers, harvest phase wiring are implemented. |
+| M1 — arXiv Harvester | ✅ Complete | RSS source client, harvester skip+rate-limit flow, Redis status/meta helpers, and harvest phase wiring are implemented. |
 | M2 — Marker Parsing Service | 🟨 In Progress | Marker FastAPI `/parse` + Go marker client + parse transition in `dig --phase full` are implemented; full Marker extraction fidelity still pending. |
 | M3 — Gemini Embedding Layer | ⬜ Not Started | |
 | M4 — Qdrant Ingestion | ⬜ Not Started | |

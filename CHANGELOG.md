@@ -10,6 +10,12 @@ All notable changes to this project are documented in this file.
 - Added `.gitignore` entries for local environment artifacts (`.env`, `venv/`, `bin/fieldwork`).
 - Added `CHANGELOG.md` for tracking notable project changes.
 
+### Changed
+
+- Updated `README.md` to reflect current RSS-first harvest flow, current CLI behavior, and `MARKER_PDF_ROOT` parse-path mapping.
+- Updated `ROADMAP.md` architecture and milestone details to match implemented RSS source + Redis key flow.
+- Refreshed AGENTS guidance to include current environment variable and full-phase parse path behavior.
+
 ## [2026-05-08]
 
 ### Fixed
